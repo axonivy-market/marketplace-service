@@ -47,6 +47,7 @@ public class Product implements Serializable {
   private int installationCount;
   private Date newestPublishDate;
   private String newestReleaseVersion;
+  private Boolean synchronizedInstallationCount;
 
   @Override
   public int hashCode() {

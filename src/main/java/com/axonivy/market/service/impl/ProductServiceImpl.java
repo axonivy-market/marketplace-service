@@ -1,16 +1,18 @@
 package com.axonivy.market.service.impl;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.kohsuke.github.GHCommit;
 import org.kohsuke.github.GHContent;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -18,7 +20,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.domain.Sort.Order;
 import org.springframework.stereotype.Service;
-import org.springframework.util.ResourceUtils;
 
 import com.axonivy.market.constants.GitHubConstants;
 import com.axonivy.market.entity.GithubRepoMeta;
@@ -47,6 +48,9 @@ public class ProductServiceImpl implements ProductService {
   private GHCommit lastGHCommit;
   private GithubRepoMeta marketRepoMeta;
   private final ObjectMapper mapper = new ObjectMapper();
+
+  @Value("${syncronized.installation.counts.path}")
+  private String installationCountPath;
 
   public ProductServiceImpl(ProductRepository repo, GHAxonIvyMarketRepoService githubService,
       GithubRepoMetaRepository repoMetaRepository) {
@@ -191,7 +195,6 @@ public class ProductServiceImpl implements ProductService {
       }
       products.add(product);
     }
-    syncInstallationCountWithProduct(products);
     productRepo.saveAll(products);
     return new PageImpl<Product>(products);
   }
@@ -206,24 +209,27 @@ public class ProductServiceImpl implements ProductService {
   }
 
   @Override
-  public void updateInstallationCountForProduct(String key) {
-    productRepo.findById(key).ifPresent(product -> {
+  public int updateInstallationCountForProduct(String key) {
+    return productRepo.findById(key).map(product -> {
       log.info("updating installation count for product {}", key);
+      if (!BooleanUtils.isTrue(product.getSynchronizedInstallationCount())) {
+        syncInstallationCountWithProduct(product);
+      }
       product.setInstallationCount(product.getInstallationCount() + 1);
-      productRepo.save(product);
-      log.info("updated installation count for product {} successfully", key);
-    });
+      return productRepo.save(product);
+    }).map(Product::getInstallationCount).orElse(0);
   }
 
-  private void syncInstallationCountWithProduct(List<Product> products) {
-    log.info("synchronizing installation count for products");
+  private void syncInstallationCountWithProduct(Product product) {
+    log.info("synchronizing installation count for product");
     try {
-      File installationCountFile = ResourceUtils.getFile("classpath:market-installations.json");
-      String installationCounts = Files.readString(installationCountFile.toPath());
+      String installationCounts = Files.readString(Paths.get(installationCountPath));
       Map<String, Integer> mapping = mapper.readValue(installationCounts, HashMap.class);
       List<String> keyList = mapping.keySet().stream().toList();
-      products.stream().filter(product -> keyList.contains(product.getKey()))
-          .forEach(product -> product.setInstallationCount(mapping.get(product.getKey())));
+      if (keyList.contains(product.getKey())) {
+        product.setInstallationCount(mapping.get(product.getKey()));
+      }
+      product.setSynchronizedInstallationCount(true);
       log.info("synchronized installation count for products");
     } catch (IOException ex) {
       log.error(ex.getMessage());

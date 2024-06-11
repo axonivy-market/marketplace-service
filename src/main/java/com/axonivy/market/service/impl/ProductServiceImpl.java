@@ -1,5 +1,8 @@
 package com.axonivy.market.service.impl;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -15,6 +18,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.domain.Sort.Order;
 import org.springframework.stereotype.Service;
+import org.springframework.util.ResourceUtils;
 
 import com.axonivy.market.constants.GitHubConstants;
 import com.axonivy.market.entity.GithubRepoMeta;
@@ -29,8 +33,12 @@ import com.axonivy.market.github.util.GithubUtils;
 import com.axonivy.market.repository.GithubRepoMetaRepository;
 import com.axonivy.market.repository.ProductRepository;
 import com.axonivy.market.service.ProductService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import lombok.extern.log4j.Log4j2;
 
 @Service
+@Log4j2
 public class ProductServiceImpl implements ProductService {
 
   private final ProductRepository productRepo;
@@ -38,6 +46,7 @@ public class ProductServiceImpl implements ProductService {
   private final GithubRepoMetaRepository repoMetaRepository;
   private GHCommit lastGHCommit;
   private GithubRepoMeta marketRepoMeta;
+  private final ObjectMapper mapper = new ObjectMapper();
 
   public ProductServiceImpl(ProductRepository repo, GHAxonIvyMarketRepoService githubService,
       GithubRepoMetaRepository repoMetaRepository) {
@@ -59,10 +68,10 @@ public class ProductServiceImpl implements ProductService {
     }
 
     final FilterType filterType = FilterType.of(type);
-    Pageable unifiedPageabe = refinePagination(pageable);
+    // Pageable unifiedPageabe = refinePagination(pageable);
 
     return switch (filterType) {
-    case ALL -> productRepo.findAll(unifiedPageabe);
+    case ALL -> productRepo.findAll(pageable);
     case CONNECTORS, UTILITIES, SOLUTIONS -> productRepo.findByType(filterType.getCode(), pageable);
     default -> Page.empty();
     };
@@ -135,7 +144,7 @@ public class ProductServiceImpl implements ProductService {
     switch (file.getStatus()) {
     case MODIFIED, ADDED:
       productRepo.save(product);
-    break;
+      break;
     case REMOVED:
       productRepo.deleteById(product.getKey());
       break;
@@ -182,6 +191,7 @@ public class ProductServiceImpl implements ProductService {
       }
       products.add(product);
     }
+    syncInstallationCountWithProduct(products);
     productRepo.saveAll(products);
     return new PageImpl<Product>(products);
   }
@@ -193,5 +203,31 @@ public class ProductServiceImpl implements ProductService {
       return productRepo.findAll(pageable);
     }
     return productRepo.findByNameOrShortDescriptionRegex(keyword, unifiedPageabe);
+  }
+
+  @Override
+  public void updateInstallationCountForProduct(String key) {
+    productRepo.findById(key).ifPresent(product -> {
+      log.info("updating installation count for product {}", key);
+      product.setInstallationCount(product.getInstallationCount() + 1);
+      productRepo.save(product);
+      log.info("updated installation count for product {} successfully", key);
+    });
+  }
+
+  private void syncInstallationCountWithProduct(List<Product> products) {
+    log.info("synchronizing installation count for products");
+    try {
+      File installationCountFile = ResourceUtils.getFile("classpath:market-installations.json");
+      String installationCounts = Files.readString(installationCountFile.toPath());
+      Map<String, Integer> mapping = mapper.readValue(installationCounts, HashMap.class);
+      List<String> keyList = mapping.keySet().stream().toList();
+      products.stream().filter(product -> keyList.contains(product.getKey()))
+          .forEach(product -> product.setInstallationCount(mapping.get(product.getKey())));
+      log.info("synchronized installation count for products");
+    } catch (IOException ex) {
+      log.error(ex.getMessage());
+      throw new RuntimeException(ex);
+    }
   }
 }

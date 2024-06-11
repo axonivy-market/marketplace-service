@@ -8,11 +8,7 @@ import org.springframework.data.web.PagedResourcesAssembler;
 import org.springframework.hateoas.PagedModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.axonivy.market.assembler.ProductModelAssembler;
 import com.axonivy.market.entity.Product;
@@ -65,5 +61,12 @@ public class ProductController {
     PagedModel<ProductModel> emptyPagedModel = (PagedModel<ProductModel>) pagedResourcesAssembler
         .toEmptyModel(Page.empty(), ProductModel.class);
     return new ResponseEntity<>(emptyPagedModel, HttpStatus.OK);
+  }
+
+  @Operation(summary = "increase installation count by 1", description = "increase installation count by 1")
+  @PostMapping("/installationcount/{key}")
+  public ResponseEntity<Void> syncInstallationCount(@PathVariable String key) {
+    service.updateInstallationCountForProduct(key);
+    return ResponseEntity.ok().build();
   }
 }

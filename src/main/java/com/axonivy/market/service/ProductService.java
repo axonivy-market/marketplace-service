@@ -11,4 +11,5 @@ public interface ProductService {
   Page<Product> searchProducts(String keyword, Pageable pageable);
 
   int updateInstallationCountForProduct(String key);
+  Page<Product> findProducts(String type, String keyword, Pageable pageable);
 }

@@ -5,6 +5,9 @@ import static com.axonivy.market.constants.CommonConstants.META_FILE;
 import static com.axonivy.market.constants.CommonConstants.SLASH;
 import static org.apache.commons.lang3.StringUtils.EMPTY;
 
+import com.axonivy.market.github.util.GitHubUtils;
+import org.apache.commons.lang3.BooleanUtils;
+
 import java.io.IOException;
 
 import org.apache.commons.lang3.StringUtils;
@@ -12,7 +15,6 @@ import org.kohsuke.github.GHContent;
 
 import com.axonivy.market.entity.Product;
 import com.axonivy.market.github.model.Meta;
-import com.axonivy.market.github.util.GitHubUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.AccessLevel;
@@ -56,13 +58,16 @@ public class ProductFactory {
 		product.setTags(meta.getTags());
 		product.setVersion(meta.getVersion());
 		product.setShortDescription(meta.getDescription());
-		product.setVendor(meta.getVendor());
-		product.setVendorImage(meta.getVendorImage());
-		product.setVendorUrl(meta.getVendorUrl());
+		product.setVendor(StringUtils.isBlank(meta.getVendor()) ? "Axon Ivy AG" : meta.getVendor());
+		product.setVendorUrl(
+				StringUtils.isBlank(meta.getVendorUrl()) ? "https://www.axonivy.com" : meta.getVendorUrl());
 		product.setPlatformReview(meta.getPlatformReview());
 		product.setStatusBadgeUrl(meta.getStatusBadgeUrl());
 		product.setLanguage(meta.getLanguage());
 		product.setIndustry(meta.getIndustry());
+		product.setContactUs(BooleanUtils.isTrue(meta.getContactUs()));
+		product.setCost(StringUtils.isBlank(meta.getCost()) ? "Free" : StringUtils.capitalize(meta.getCost()));
+		product.setCompatibility(meta.getCompatibility());
 		extractSourceUrl(product, meta);
 		product.setArtifacts(meta.getMavenArtifacts());
 		return product;

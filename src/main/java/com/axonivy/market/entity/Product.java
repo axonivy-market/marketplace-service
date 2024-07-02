@@ -6,24 +6,20 @@ import java.io.Serializable;
 import java.util.Date;
 import java.util.List;
 
+import lombok.*;
 import com.axonivy.market.github.model.MavenArtifact;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
+@Builder
 @Document(PRODUCT)
 public class Product implements Serializable {
-
 	private static final long serialVersionUID = -8770801877877277258L;
 	@Id
 	private String id;
@@ -36,7 +32,6 @@ public class Product implements Serializable {
 	private String type;
 	private List<String> tags;
 	private String vendor;
-	private String vendorImage;
 	private String vendorUrl;
 	private String platformReview;
 	private String cost;
@@ -51,6 +46,7 @@ public class Product implements Serializable {
 	private Integer installationCount;
 	private Date newestPublishedDate;
 	private String newestReleaseVersion;
+	private List<ReadmeProductContent> readmeProductContents;
 	private List<MavenArtifact> artifacts;
 
 	@Override
